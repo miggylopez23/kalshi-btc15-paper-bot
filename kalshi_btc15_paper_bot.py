@@ -13,6 +13,7 @@ import math
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone, date
+from zoneinfo import ZoneInfo
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 from typing import Any
@@ -26,6 +27,7 @@ STARTING_BANKROLL = 100.00
 RISK_PER_TRADE = 2.00
 MAX_DAILY_LOSS = 10.00
 POLL_SECONDS = 5
+LOCAL_TZ = ZoneInfo("America/Denver")
 
 # Signal controls: all momentum values are changes in the YES-contract midpoint.
 WINDOWS = (45, 90, 180)
@@ -155,7 +157,7 @@ def default_state() -> dict:
         "starting_bankroll": STARTING_BANKROLL,
         "cash": STARTING_BANKROLL,
         "daily_pnl": 0.0,
-        "day": str(date.today()),
+        "day": datetime.now(LOCAL_TZ).date().isoformat(),
         "history": [],
         "position": None,
         "traded_tickers": [],
@@ -179,7 +181,7 @@ def load_state() -> dict:
         state["cash"] = float(state.get("bankroll", STARTING_BANKROLL))
     state.setdefault("starting_bankroll", STARTING_BANKROLL)
     state.setdefault("daily_pnl", 0.0)
-    state.setdefault("day", str(date.today()))
+    state.setdefault("day", datetime.now(LOCAL_TZ).date().isoformat())
     state.setdefault("traded_tickers", [])
     state.setdefault("position", None)
     state.setdefault("history", [])
@@ -325,6 +327,7 @@ def main() -> None:
     state = load_state()
     quotes_history: list[Quote] = []
     history_ticker: str | None = None
+    loss_pause_logged_day: str | None = None
     save_state(state)
 
     print("BTC15M PAPER v3.1 â public data only; no orders.", flush=True)
@@ -340,15 +343,19 @@ def main() -> None:
 
     while True:
         try:
-            today = str(date.today())
+            today = datetime.now(LOCAL_TZ).date().isoformat()
             if state["day"] != today:
                 state["day"] = today
                 state["daily_pnl"] = 0.0
                 state["traded_tickers"] = []
+                loss_pause_logged_day = None
+                print(f"Daily reset ({today}, Mountain Time): loss pause cleared; paper trading may resume.", flush=True)
                 save_state(state)
 
             if float(state["daily_pnl"]) <= -MAX_DAILY_LOSS:
-                print("Daily realized-loss limit reached; paused.", flush=True)
+                if loss_pause_logged_day != today:
+                    print(f"Daily realized-loss limit reached (${float(state['daily_pnl']):.2f}); paused until next Mountain Time day.", flush=True)
+                    loss_pause_logged_day = today
                 time.sleep(60)
                 continue
 
@@ -496,5 +503,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
 

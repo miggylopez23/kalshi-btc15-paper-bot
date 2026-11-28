@@ -59,7 +59,33 @@ c3,c4=st.columns(2)
 c3.metric("Realized P/L",f"${float(s.get('realized_pnl',net)):+.2f}")
 c4.metric("Today's settled P/L",f"${float(s.get('daily_pnl',0)):+.2f}")
 st.info("Open-position value is carried at entry cost plus estimated fee until settlement; this is NOT a live resale valuation.")
-st.warning("Paper-only. This app does not submit Kalshi Demo or Production orders.")
+st.warning("Paper-only. This app does not submit Kalshi Demo or Production orders.") 
+
+st.subheader("📦 Download Backups")
+st.caption("Save copies of your bot data before making code changes.")
+
+backup_files = [
+    ("paper_state.json", STATE, "application/json"),
+    ("paper_trades_v2.csv", TRADES, "text/csv"),
+    ("bot.log", LOGFILE, "text/plain"),
+]
+
+for filename, filepath, mime in backup_files:
+    if filepath.exists():
+        try:
+            file_data = filepath.read_bytes()
+            st.download_button(
+                label=f"⬇️ Download {filename}",
+                data=file_data,
+                file_name=filename,
+                mime=mime,
+                use_container_width=True,
+                key=f"backup_{filename}"
+            )
+        except Exception as e:
+            st.error(f"Could not prepare {filename}: {e}")
+    else:
+        st.caption(f"{filename}: Not created yet")
 a,b=st.columns(2)
 with a:
     if st.button("▶ Start paper bot",use_container_width=True,type="primary",disabled=running):
